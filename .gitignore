@@ -1,18 +1,36 @@
+# Gradle
+.gradle/
+build/
+**/build/
+.kotlin/
+
+# Android Studio / IntelliJ IDEA
 *.iml
-.gradle
-.kotlin
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
+.idea/
+local.properties
+
+# Android Build Outputs (Keep repo clean, upload APKs via GitHub Actions artifacts)
+*.apk
+*.aab
+*.ap_
+
+# Signing Keys & Keystores (Never commit credentials)
+*.jks
+*.keystore
+*.p12
+*.key
+debug.keystore
+debug.keystore.base64
+my-upload-key.jks
+
+# Environment variables & secrets
+.env
+.env.local
+.dev.env.json
+
+# OS Specific
 .DS_Store
-/build
+Thumbs.db
 /captures
 .externalNativeBuild
 .cxx
-local.properties
-.env
-debug.keystore
