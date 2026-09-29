@@ -1,0 +1,25 @@
+<resources>
+    <string name="app_name">VeilBrowse</string>
+    <string name="app_tagline">Browse Freely. Stay Private.</string>
+    <string name="tab_home">Home</string>
+    <string name="tab_browser">Browser</string>
+    <string name="tab_privacy">Privacy</string>
+    <string name="tab_connection">Connection</string>
+    <string name="tab_settings">Settings</string>
+    
+    <string name="search_or_type_url">Search or enter web address…</string>
+    <string name="clear_browsing_data">Clear Browsing Data</string>
+    <string name="new_private_session">New Private Session</string>
+    <string name="trackers_blocked_title">Trackers Blocked</string>
+    <string name="cookies_title">Cookies Active</string>
+    <string name="vpn_not_connected">VPN not connected</string>
+    <string name="vpn_connected">VPN Connected</string>
+    <string name="device_info_minimized">Minimized</string>
+    <string name="privacy_profile">Privacy Profile</string>
+    
+    <string name="vpn_disclaimer">A VPN changes the public IP address visible to websites. It does not automatically change every device characteristic.</string>
+    <string name="identification_signals">Websites may still identify your browser through cookies, browser fingerprinting, account information, IP characteristics, or other technical signals.</string>
+    <string name="webrtc_unable_to_verify">Unable to verify</string>
+    <string name="webrtc_protected">Protected (IP hidden/blocked)</string>
+    <string name="webrtc_potential_leak">Potential leak</string>
+</resources>

@@ -1,0 +1,6 @@
+{
+  "name": "VeilBrowse",
+  "description": "Professional Android-first privacy web browser with tracker protection, VPN/proxy verification, and device fingerprint minimization.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
