@@ -251,4 +251,82 @@ class VeilBrowseCompatibilityTest {
         val isConfigured = settings.proxyEnabled && settings.proxyHost.isNotBlank()
         assertFalse("Proxy should be reported as NOT CONFIGURED when disabled or empty", isConfigured)
     }
+
+    // 14. Proxy 6-State Connection Workflow Model
+    @Test
+    fun testProxySixStateModelDistinction() {
+        // 1. NOT CONFIGURED
+        val notConfigured = com.example.veilbrowse.data.model.ProxyStatusInfo(
+            state = com.example.veilbrowse.data.model.ProxyConnectionState.NOT_CONFIGURED
+        )
+        assertEquals(com.example.veilbrowse.data.model.ProxyConnectionState.NOT_CONFIGURED, notConfigured.state)
+        assertFalse(notConfigured.isAppliedToWebView)
+
+        // 2. CONFIGURED / NOT VERIFIED (Entered and saved, but not verified via real probe)
+        val configuredNotVerified = com.example.veilbrowse.data.model.ProxyStatusInfo(
+            state = com.example.veilbrowse.data.model.ProxyConnectionState.CONFIGURED_NOT_VERIFIED,
+            host = "192.168.1.100",
+            port = 8080,
+            proxyType = "HTTP",
+            hasUsername = true,
+            isAppliedToWebView = false
+        )
+        assertEquals(com.example.veilbrowse.data.model.ProxyConnectionState.CONFIGURED_NOT_VERIFIED, configuredNotVerified.state)
+        assertFalse("Configured proxy must not be considered connected before verification", configuredNotVerified.isAppliedToWebView)
+        assertTrue(configuredNotVerified.hasUsername)
+
+        // 3. TESTING
+        val testing = configuredNotVerified.copy(
+            state = com.example.veilbrowse.data.model.ProxyConnectionState.TESTING
+        )
+        assertEquals(com.example.veilbrowse.data.model.ProxyConnectionState.TESTING, testing.state)
+
+        // 4. CONNECTED (Only after successful real network request)
+        val connected = testing.copy(
+            state = com.example.veilbrowse.data.model.ProxyConnectionState.CONNECTED,
+            testTimestamp = System.currentTimeMillis(),
+            observedPublicIp = "203.0.113.195",
+            observedLocation = "Frankfurt, Germany",
+            responseTimeMs = 145L,
+            isAppliedToWebView = true
+        )
+        assertEquals(com.example.veilbrowse.data.model.ProxyConnectionState.CONNECTED, connected.state)
+        assertTrue("Connected state must reflect active application to WebView", connected.isAppliedToWebView)
+        assertEquals("203.0.113.195", connected.observedPublicIp)
+        assertEquals(145L, connected.responseTimeMs)
+
+        // 5. CONNECTION FAILED
+        val failed = testing.copy(
+            state = com.example.veilbrowse.data.model.ProxyConnectionState.FAILED,
+            failureReason = "Connection refused on 192.168.1.100:8080",
+            isAppliedToWebView = false
+        )
+        assertEquals(com.example.veilbrowse.data.model.ProxyConnectionState.FAILED, failed.state)
+        assertFalse(failed.isAppliedToWebView)
+        assertTrue(failed.failureReason!!.contains("Connection refused"))
+
+        // 6. DISCONNECTED
+        val disconnected = connected.copy(
+            state = com.example.veilbrowse.data.model.ProxyConnectionState.DISCONNECTED,
+            isAppliedToWebView = false
+        )
+        assertEquals(com.example.veilbrowse.data.model.ProxyConnectionState.DISCONNECTED, disconnected.state)
+        assertFalse(disconnected.isAppliedToWebView)
+    }
+
+    // 15. Proxy test rejects invalid ports and empty hosts gracefully
+    @Test
+    fun testProxyValidationRejectsInvalidConfiguration() = kotlinx.coroutines.runBlocking {
+        val emptyHostResult = com.example.veilbrowse.engine.ProxyManager.testProxyConnection(
+            host = "   ",
+            port = 8080
+        )
+        assertTrue("Empty host must return failure", emptyHostResult is com.example.veilbrowse.engine.ProxyTestResult.Failure)
+
+        val invalidPortResult = com.example.veilbrowse.engine.ProxyManager.testProxyConnection(
+            host = "127.0.0.1",
+            port = 99999
+        )
+        assertTrue("Invalid port must return failure", invalidPortResult is com.example.veilbrowse.engine.ProxyTestResult.Failure)
+    }
 }

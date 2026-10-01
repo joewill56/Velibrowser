@@ -64,6 +64,7 @@ fun VeilBrowseApp(
     val bookmarks by browserViewModel.bookmarks.collectAsState()
 
     val networkInfo by connectionViewModel.networkInfo.collectAsState()
+    val proxyStatus by connectionViewModel.proxyStatus.collectAsState()
     val proxyStatusMessage by connectionViewModel.proxyStatusMessage.collectAsState()
     val settingsState by settingsViewModel.settings.collectAsState()
 
@@ -105,6 +106,7 @@ fun VeilBrowseApp(
                 VeilNavigationItem.HOME -> {
                     DashboardScreen(
                         networkInfo = networkInfo,
+                        proxyStatus = proxyStatus,
                         totalTrackersBlocked = totalTrackersBlocked,
                         sessionTrackersBlocked = browserUiState.sessionTrackersBlockedCount,
                         onNavigateToBrowser = { url ->
@@ -161,9 +163,16 @@ fun VeilBrowseApp(
                     ConnectionScreen(
                         networkInfo = networkInfo,
                         settings = settingsState,
+                        proxyStatus = proxyStatus,
                         proxyStatusMessage = proxyStatusMessage,
-                        onSaveProxy = { enabled, host, port, type ->
-                            connectionViewModel.saveProxyConfiguration(enabled, host, port, type)
+                        onSaveProxy = { enabled, host, port, type, username, password ->
+                            connectionViewModel.saveProxyConfiguration(enabled, host, port, type, username, password)
+                        },
+                        onTestAndConnectProxy = { host, port, type, username, password ->
+                            connectionViewModel.testAndConnectProxy(host, port, type, username, password)
+                        },
+                        onDisconnectProxy = {
+                            connectionViewModel.disconnectProxy()
                         },
                         onRefresh = {
                             connectionViewModel.runNetworkDiagnostics()

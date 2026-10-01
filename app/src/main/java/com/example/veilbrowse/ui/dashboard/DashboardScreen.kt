@@ -71,12 +71,15 @@ import com.example.ui.theme.NeonPurple
 import com.example.ui.theme.SafeGreen
 import com.example.ui.theme.WarningYellow
 import com.example.veilbrowse.data.model.NetworkDiagnosticInfo
+import com.example.veilbrowse.data.model.ProxyConnectionState
+import com.example.veilbrowse.data.model.ProxyStatusInfo
 import com.example.veilbrowse.data.model.WebRtcStatus
 import com.example.veilbrowse.ui.components.StatusBadge
 
 @Composable
 fun DashboardScreen(
     networkInfo: NetworkDiagnosticInfo,
+    proxyStatus: ProxyStatusInfo = ProxyStatusInfo(),
     totalTrackersBlocked: Int,
     sessionTrackersBlocked: Int,
     onNavigateToBrowser: (url: String) -> Unit,
@@ -341,6 +344,29 @@ fun DashboardScreen(
                             StatusBadge(text = "VPN CONNECTED", isSafe = true)
                         } else {
                             StatusBadge(text = "VPN NOT CONNECTED", isSafe = false)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Browser Proxy Status
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Browser Proxy:",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        when (proxyStatus.state) {
+                            ProxyConnectionState.CONNECTED -> StatusBadge(text = "PROXY CONNECTED", isSafe = true)
+                            ProxyConnectionState.FAILED -> StatusBadge(text = "PROXY FAILED", isSafe = false)
+                            ProxyConnectionState.TESTING -> StatusBadge(text = "PROXY TESTING…", isSafe = false)
+                            ProxyConnectionState.CONFIGURED_NOT_VERIFIED -> StatusBadge(text = "UNVERIFIED", isSafe = false)
+                            ProxyConnectionState.DISCONNECTED -> StatusBadge(text = "DISCONNECTED", isSafe = false)
+                            ProxyConnectionState.NOT_CONFIGURED -> StatusBadge(text = "NOT CONFIGURED", isSafe = false)
                         }
                     }
 

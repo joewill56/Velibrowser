@@ -60,7 +60,9 @@ class PrivacySettingsRepository(context: Context) {
             proxyEnabled = prefs.getBoolean(KEY_PROXY_ENABLED, false),
             proxyHost = prefs.getString(KEY_PROXY_HOST, "") ?: "",
             proxyPort = prefs.getInt(KEY_PROXY_PORT, 8080),
-            proxyType = prefs.getString(KEY_PROXY_TYPE, "HTTP") ?: "HTTP"
+            proxyType = prefs.getString(KEY_PROXY_TYPE, "HTTP") ?: "HTTP",
+            proxyUsername = prefs.getString(KEY_PROXY_USERNAME, "") ?: "",
+            proxyPassword = prefs.getString(KEY_PROXY_PASSWORD, "") ?: ""
         )
     }
 
@@ -83,6 +85,8 @@ class PrivacySettingsRepository(context: Context) {
             putString(KEY_PROXY_HOST, updated.proxyHost)
             putInt(KEY_PROXY_PORT, updated.proxyPort)
             putString(KEY_PROXY_TYPE, updated.proxyType)
+            putString(KEY_PROXY_USERNAME, updated.proxyUsername)
+            putString(KEY_PROXY_PASSWORD, updated.proxyPassword)
             apply()
         }
         _settings.value = updated
@@ -105,5 +109,7 @@ class PrivacySettingsRepository(context: Context) {
         private const val KEY_PROXY_HOST = "proxy_host"
         private const val KEY_PROXY_PORT = "proxy_port"
         private const val KEY_PROXY_TYPE = "proxy_type"
+        private const val KEY_PROXY_USERNAME = "proxy_username"
+        private const val KEY_PROXY_PASSWORD = "proxy_password"
     }
 }

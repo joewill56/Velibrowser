@@ -93,7 +93,32 @@ data class PrivacySettingsState(
     val proxyEnabled: Boolean = false,
     val proxyHost: String = "",
     val proxyPort: Int = 8080,
-    val proxyType: String = "HTTP" // HTTP or SOCKS
+    val proxyType: String = "HTTP", // HTTP or SOCKS
+    val proxyUsername: String = "",
+    val proxyPassword: String = ""
+)
+
+enum class ProxyConnectionState(val displayName: String) {
+    NOT_CONFIGURED("NOT CONFIGURED"),
+    CONFIGURED_NOT_VERIFIED("CONFIGURED (NOT VERIFIED)"),
+    TESTING("TESTING"),
+    CONNECTED("CONNECTED"),
+    FAILED("CONNECTION FAILED"),
+    DISCONNECTED("DISCONNECTED")
+}
+
+data class ProxyStatusInfo(
+    val state: ProxyConnectionState = ProxyConnectionState.NOT_CONFIGURED,
+    val proxyType: String = "HTTP",
+    val host: String = "",
+    val port: Int = 8080,
+    val hasUsername: Boolean = false,
+    val testTimestamp: Long = 0L,
+    val observedPublicIp: String? = null,
+    val observedLocation: String? = null,
+    val responseTimeMs: Long? = null,
+    val failureReason: String? = null,
+    val isAppliedToWebView: Boolean = false
 )
 
 data class NetworkDiagnosticInfo(
