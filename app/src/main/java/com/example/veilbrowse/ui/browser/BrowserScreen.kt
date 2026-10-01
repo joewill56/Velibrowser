@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Lock
@@ -350,6 +351,36 @@ fun BrowserScreen(
                     }
                 }
 
+                // Navigation notice / error banner
+                if (uiState.navigationWarning != null) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.errorContainer)
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = uiState.navigationWarning ?: "",
+                            style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onErrorContainer),
+                            modifier = Modifier.weight(1f),
+                            maxLines = 2
+                        )
+                        IconButton(
+                            onClick = { viewModel.clearNavigationWarning() },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Dismiss",
+                                tint = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
+
                 // Loading progress bar
                 if (uiState.isLoading) {
                     LinearProgressIndicator(
@@ -379,19 +410,25 @@ fun BrowserScreen(
                             ViewGroup.LayoutParams.MATCH_PARENT
                         )
 
-                        // Privacy & Security settings
+                        // Privacy & Compatibility settings
                         val ws = this.settings
                         ws.javaScriptEnabled = privacySettings.javaScriptEnabled
                         ws.domStorageEnabled = true
-                        ws.setSupportMultipleWindows(false)
+                        ws.databaseEnabled = true
+                        ws.setSupportMultipleWindows(true)
                         ws.javaScriptCanOpenWindowsAutomatically = !privacySettings.blockPopups
                         ws.setGeolocationEnabled(false)
                         ws.savePassword = false
                         ws.saveFormData = false
                         ws.allowFileAccess = false
                         ws.allowContentAccess = false
-                        ws.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+                        ws.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
                         ws.cacheMode = WebSettings.LOAD_DEFAULT
+                        ws.loadWithOverviewMode = true
+                        ws.useWideViewPort = true
+                        ws.setSupportZoom(true)
+                        ws.builtInZoomControls = true
+                        ws.displayZoomControls = false
 
                         // Generic User-Agent application to reduce hardware model fingerprinting
                         val defaultUa = ws.userAgentString
@@ -409,7 +446,7 @@ fun BrowserScreen(
                         webViewClient = VeilWebViewClient(
                             scope = coroutineScope,
                             trackerDao = com.example.veilbrowse.data.db.VeilDatabase.getInstance(ctx).trackerDao(),
-                            isTrackerBlockingEnabled = { privacySettings.blockTrackers },
+                            getProtectionLevel = { privacySettings.trackerProtectionLevel },
                             onPageTitleChanged = { title ->
                                 viewModel.onPageFinished(url ?: "", title)
                             },
@@ -421,8 +458,14 @@ fun BrowserScreen(
                                 viewModel.onProgressChanged(if (loading) 20 else 100)
                                 viewModel.updateNavigationState(canGoBack(), canGoForward())
                             },
+                            onResourceInspected = { inspected ->
+                                viewModel.onResourceInspected(inspected)
+                            },
                             onTrackerBlocked = { domain, category ->
                                 viewModel.onTrackerBlocked(domain, category)
+                            },
+                            onNavigationError = { failedUrl, reason ->
+                                viewModel.onNavigationError(failedUrl, reason)
                             }
                         )
 
@@ -432,6 +475,9 @@ fun BrowserScreen(
                             },
                             onTitleReceived = { title ->
                                 viewModel.onPageFinished(url ?: "", title)
+                            },
+                            onOpenWindowRequested = { destUrl ->
+                                viewModel.openUrl(destUrl)
                             }
                         )
 
@@ -650,6 +696,8 @@ fun BrowserScreen(
     if (showTrackersSheet) {
         BlockedTrackersSheet(
             trackers = uiState.sessionBlockedTrackersList,
+            inspectedResources = uiState.sessionInspectedResources,
+            protectionLevel = privacySettings.trackerProtectionLevel,
             onDismiss = { showTrackersSheet = false }
         )
     }

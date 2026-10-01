@@ -148,11 +148,27 @@ fun ConnectionScreen(
                                 )
                             )
                         }
+                    }
 
-                        if (networkInfo.isVpnConnected) {
-                            StatusBadge(text = "VPN Connected", isSafe = true)
-                        } else {
-                            StatusBadge(text = "VPN not connected", isSafe = false)
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            StatusBadge(
+                                text = if (networkInfo.isVpnConnected) "VPN CONNECTED" else "VPN NOT CONNECTED",
+                                isSafe = networkInfo.isVpnConnected
+                            )
+                        }
+
+                        val isProxyActive = settings.proxyEnabled && settings.proxyHost.isNotBlank()
+                        Box(modifier = Modifier.weight(1f)) {
+                            StatusBadge(
+                                text = if (isProxyActive) "PROXY CONFIGURED" else "PROXY NOT CONFIGURED",
+                                isSafe = isProxyActive
+                            )
                         }
                     }
 
@@ -167,6 +183,13 @@ fun ConnectionScreen(
                     ConnectionMetricRow("DNS Resolver", networkInfo.dnsSecOrDoH)
                     Spacer(modifier = Modifier.height(8.dp))
                     ConnectionMetricRow("WebRTC Leak Check", networkInfo.webrtcStatus.label)
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Real telemetry: VeilBrowse reflects actual network probe responses and does not fabricate fake IP or location data.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }
@@ -193,7 +216,7 @@ fun ConnectionScreen(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "PROXY CONFIGURATION",
+                                text = "BROWSER PROXY (WEBVIEW ONLY)",
                                 style = MaterialTheme.typography.titleSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 1.sp
@@ -212,7 +235,7 @@ fun ConnectionScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = "Route browser web traffic through a local or remote proxy server (e.g., Tor SOCKS5 or HTTP gateway).",
+                        text = "Routes VeilBrowse web traffic through a custom HTTP or SOCKS5 proxy server. This applies strictly to the in-app browser engine and does not provide device-wide VPN tunneling.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

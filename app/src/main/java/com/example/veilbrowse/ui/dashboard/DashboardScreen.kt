@@ -338,9 +338,9 @@ fun DashboardScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         if (networkInfo.isVpnConnected) {
-                            StatusBadge(text = "VPN Connected", isSafe = true)
+                            StatusBadge(text = "VPN CONNECTED", isSafe = true)
                         } else {
-                            StatusBadge(text = "VPN not connected", isSafe = false)
+                            StatusBadge(text = "VPN NOT CONNECTED", isSafe = false)
                         }
                     }
 

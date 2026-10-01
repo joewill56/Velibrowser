@@ -8,7 +8,9 @@ import androidx.lifecycle.viewModelScope
 import com.example.veilbrowse.data.db.VeilDatabase
 import com.example.veilbrowse.data.model.BlockedTrackerEntity
 import com.example.veilbrowse.data.model.BookmarkEntity
+import com.example.veilbrowse.data.model.InspectedResource
 import com.example.veilbrowse.data.model.PrivacySettingsState
+import com.example.veilbrowse.data.model.ResourceDisposition
 import com.example.veilbrowse.data.model.SearchEngine
 import com.example.veilbrowse.data.model.TabEntity
 import com.example.veilbrowse.data.repository.PrivacySettingsRepository
@@ -32,8 +34,10 @@ data class BrowserUiState(
     val canGoForward: Boolean = false,
     val sessionTrackersBlockedCount: Int = 0,
     val sessionBlockedTrackersList: List<BlockedTrackerEntity> = emptyList(),
+    val sessionInspectedResources: List<InspectedResource> = emptyList(),
     val isSecureHttps: Boolean = false,
-    val isPrivateSession: Boolean = true
+    val isPrivateSession: Boolean = true,
+    val navigationWarning: String? = null
 )
 
 class BrowserViewModel(application: Application) : AndroidViewModel(application) {
@@ -234,19 +238,52 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         )
     }
 
-    fun onTrackerBlocked(domain: String, category: String) {
-        val tracker = BlockedTrackerEntity(
-            domain = domain,
-            category = category,
-            blockedOnUrl = _uiState.value.currentUrl
-        )
-        val currentList = _uiState.value.sessionBlockedTrackersList.toMutableList()
-        currentList.add(0, tracker)
+    fun onResourceInspected(resource: InspectedResource) {
+        val currentInspected = _uiState.value.sessionInspectedResources.toMutableList()
+        currentInspected.add(0, resource)
 
-        _uiState.value = _uiState.value.copy(
-            sessionTrackersBlockedCount = _uiState.value.sessionTrackersBlockedCount + 1,
-            sessionBlockedTrackersList = currentList.take(50)
+        if (resource.disposition == ResourceDisposition.TRACKER_BLOCKED) {
+            val tracker = BlockedTrackerEntity(
+                domain = resource.domain,
+                category = resource.category,
+                blockedOnUrl = _uiState.value.currentUrl
+            )
+            val currentBlocked = _uiState.value.sessionBlockedTrackersList.toMutableList()
+            currentBlocked.add(0, tracker)
+
+            _uiState.value = _uiState.value.copy(
+                sessionTrackersBlockedCount = _uiState.value.sessionTrackersBlockedCount + 1,
+                sessionBlockedTrackersList = currentBlocked.take(50),
+                sessionInspectedResources = currentInspected.take(100)
+            )
+        } else {
+            // For allowed resources (Ads, Site, Allowed Trackers), record in inspected list but do NOT increment blocked counter
+            _uiState.value = _uiState.value.copy(
+                sessionInspectedResources = currentInspected.take(100)
+            )
+        }
+    }
+
+    fun onTrackerBlocked(domain: String, category: String) {
+        onResourceInspected(
+            InspectedResource(
+                domain = domain,
+                category = category,
+                disposition = ResourceDisposition.TRACKER_BLOCKED,
+                timestamp = System.currentTimeMillis(),
+                url = _uiState.value.currentUrl
+            )
         )
+    }
+
+    fun onNavigationError(url: String, description: String) {
+        _uiState.value = _uiState.value.copy(
+            navigationWarning = "Navigation Notice: $description ($url)"
+        )
+    }
+
+    fun clearNavigationWarning() {
+        _uiState.value = _uiState.value.copy(navigationWarning = null)
     }
 
     fun startNewPrivateSession() {

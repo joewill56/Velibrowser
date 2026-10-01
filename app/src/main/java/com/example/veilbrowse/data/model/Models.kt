@@ -30,9 +30,40 @@ data class BookmarkEntity(
     val createdAt: Long = System.currentTimeMillis()
 )
 
+enum class TrackerProtectionLevel(val displayName: String, val description: String) {
+    STRICT(
+        displayName = "Strict",
+        description = "Aggressive blocking of trackers, advertising networks, and fingerprinting scripts. Some websites or ad click destinations may break."
+    ),
+    BALANCED(
+        displayName = "Balanced (Recommended)",
+        description = "Blocks invasive trackers, analytics telemetry, and device fingerprinting while allowing legitimate display ads, ad clicks, and site compatibility."
+    ),
+    OFF(
+        displayName = "Off",
+        description = "Disables tracker interception. Third-party advertising and tracking resources load as standard."
+    )
+}
+
+enum class ResourceDisposition(val label: String) {
+    TRACKER_BLOCKED("TRACKER BLOCKED"),
+    TRACKER_ALLOWED("TRACKER ALLOWED"),
+    AD_ALLOWED("ADVERTISEMENT RESOURCE ALLOWED"),
+    WEBSITE_ALLOWED("WEBSITE RESOURCE ALLOWED")
+}
+
+data class InspectedResource(
+    val id: Long = System.currentTimeMillis() + (0..999).random(),
+    val domain: String,
+    val category: String,
+    val disposition: ResourceDisposition,
+    val timestamp: Long = System.currentTimeMillis(),
+    val url: String = ""
+)
+
 enum class PrivacyProfileType(val displayName: String, val description: String) {
     STANDARD("Standard", "Uses standard browser behavior with tracker blocking enabled."),
-    GENERIC_ANDROID("Generic Android", "Removes device hardware model and build ID. Exposes a generic Android version."),
+    GENERIC_ANDROID("Generic Android", "Minimizes hardware model and build ID to reduce passive fingerprinting without claiming complete untraceability."),
     GENERIC_MOBILE("Generic Mobile", "Uses a standardized mobile Safari/WebKit identity to reduce platform-specific fingerprinting."),
     GENERIC_DESKTOP("Generic Desktop", "Requests desktop versions with a generic Linux/Chrome desktop signature.")
 }
@@ -46,6 +77,7 @@ enum class SearchEngine(val displayName: String, val searchUrl: String) {
 }
 
 data class PrivacySettingsState(
+    val trackerProtectionLevel: TrackerProtectionLevel = TrackerProtectionLevel.BALANCED,
     val blockTrackers: Boolean = true,
     val blockThirdPartyCookies: Boolean = true,
     val clearDataOnExit: Boolean = true,

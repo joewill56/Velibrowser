@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import com.example.veilbrowse.data.model.PrivacyProfileType
 import com.example.veilbrowse.data.model.PrivacySettingsState
 import com.example.veilbrowse.data.model.SearchEngine
+import com.example.veilbrowse.data.model.TrackerProtectionLevel
 import com.example.veilbrowse.data.repository.PrivacySettingsRepository
 import kotlinx.coroutines.flow.StateFlow
 
@@ -13,8 +14,18 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val settingsRepo = PrivacySettingsRepository(application)
     val settings: StateFlow<PrivacySettingsState> = settingsRepo.settings
 
+    fun setTrackerProtectionLevel(level: TrackerProtectionLevel) {
+        settingsRepo.updateSettings {
+            it.copy(
+                trackerProtectionLevel = level,
+                blockTrackers = (level != TrackerProtectionLevel.OFF)
+            )
+        }
+    }
+
     fun setBlockTrackers(enabled: Boolean) {
-        settingsRepo.updateSettings { it.copy(blockTrackers = enabled) }
+        val level = if (enabled) TrackerProtectionLevel.BALANCED else TrackerProtectionLevel.OFF
+        setTrackerProtectionLevel(level)
     }
 
     fun setBlockThirdPartyCookies(enabled: Boolean) {

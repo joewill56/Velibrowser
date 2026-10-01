@@ -1,6 +1,7 @@
 package com.example
 
 import com.example.veilbrowse.data.model.PrivacyProfileType
+import com.example.veilbrowse.data.model.TrackerProtectionLevel
 import com.example.veilbrowse.engine.TrackerBlocker
 import com.example.veilbrowse.engine.UserAgentManager
 import org.junit.Assert.assertEquals
@@ -11,22 +12,49 @@ import org.junit.Test
 class ExampleUnitTest {
 
   @Test
-  fun trackerBlocker_blocksAdvertisingAndAnalytics() {
-    val adCheck = TrackerBlocker.checkUrl("https://adservice.google.com/ads/test")
-    assertTrue("Should block adservice.google.com", adCheck.isBlocked)
-    assertEquals("Advertising Tracker", adCheck.category)
+  fun trackerBlocker_blocksAdvertisingInStrictMode() {
+    val strictAdCheck = TrackerBlocker.evaluateResource(
+        url = "https://adservice.google.com/ads/test",
+        level = TrackerProtectionLevel.STRICT,
+        isMainFrame = false
+    )
+    assertTrue("In STRICT mode, advertising should be blocked", strictAdCheck.isBlocked)
+    assertEquals("Advertising Network", strictAdCheck.category)
+  }
 
-    val doubleclickCheck = TrackerBlocker.checkUrl("https://stats.doubleclick.net/r/collect")
-    assertTrue("Should block doubleclick.net", doubleclickCheck.isBlocked)
+  @Test
+  fun trackerBlocker_balancedModeAllowsAdsWhileBlockingAnalyticsAndPixels() {
+    // In BALANCED mode, advertising is allowed for compatibility and click navigation
+    val adCheck = TrackerBlocker.evaluateResource(
+        url = "https://adservice.google.com/ads/test",
+        level = TrackerProtectionLevel.BALANCED,
+        isMainFrame = false
+    )
+    assertFalse("In BALANCED mode, legitimate ad resources should be allowed for rendering", adCheck.isBlocked)
 
-    val analyticsCheck = TrackerBlocker.checkUrl("https://www.google-analytics.com/analytics.js")
-    assertTrue("Should block analytics.google.com", analyticsCheck.isBlocked)
+    // Analytics and Telemetry are blocked in BALANCED mode
+    val analyticsCheck = TrackerBlocker.evaluateResource(
+        url = "https://www.google-analytics.com/analytics.js",
+        level = TrackerProtectionLevel.BALANCED,
+        isMainFrame = false
+    )
+    assertTrue("In BALANCED mode, analytics telemetry should be blocked", analyticsCheck.isBlocked)
 
-    val fbPixelCheck = TrackerBlocker.checkUrl("https://connect.facebook.net/en_US/fbevents.js")
-    assertTrue("Should block Facebook pixel", fbPixelCheck.isBlocked)
+    // Facebook Pixel is blocked in BALANCED mode
+    val fbPixelCheck = TrackerBlocker.evaluateResource(
+        url = "https://connect.facebook.net/en_US/fbevents.js",
+        level = TrackerProtectionLevel.BALANCED,
+        isMainFrame = false
+    )
+    assertTrue("In BALANCED mode, social tracking pixels should be blocked", fbPixelCheck.isBlocked)
 
-    val safeSiteCheck = TrackerBlocker.checkUrl("https://duckduckgo.com")
-    assertFalse("Should allow duckduckgo.com", safeSiteCheck.isBlocked)
+    // Safe website is allowed
+    val safeSiteCheck = TrackerBlocker.evaluateResource(
+        url = "https://duckduckgo.com",
+        level = TrackerProtectionLevel.BALANCED,
+        isMainFrame = true
+    )
+    assertFalse("Safe sites must be allowed", safeSiteCheck.isBlocked)
   }
 
   @Test

@@ -32,8 +32,21 @@ class PrivacySettingsRepository(context: Context) {
             SearchEngine.DUCKDUCKGO
         }
 
+        val levelName = prefs.getString(KEY_TRACKER_PROTECTION_LEVEL, null)
+        val protectionLevel = if (levelName != null) {
+            try {
+                com.example.veilbrowse.data.model.TrackerProtectionLevel.valueOf(levelName)
+            } catch (_: Exception) {
+                com.example.veilbrowse.data.model.TrackerProtectionLevel.BALANCED
+            }
+        } else {
+            val legacyBlock = prefs.getBoolean(KEY_BLOCK_TRACKERS, true)
+            if (legacyBlock) com.example.veilbrowse.data.model.TrackerProtectionLevel.BALANCED else com.example.veilbrowse.data.model.TrackerProtectionLevel.OFF
+        }
+
         return PrivacySettingsState(
-            blockTrackers = prefs.getBoolean(KEY_BLOCK_TRACKERS, true),
+            trackerProtectionLevel = protectionLevel,
+            blockTrackers = protectionLevel != com.example.veilbrowse.data.model.TrackerProtectionLevel.OFF,
             blockThirdPartyCookies = prefs.getBoolean(KEY_BLOCK_3RD_PARTY_COOKIES, true),
             clearDataOnExit = prefs.getBoolean(KEY_CLEAR_ON_EXIT, true),
             webrtcProtection = prefs.getBoolean(KEY_WEBRTC_PROTECT, true),
@@ -54,6 +67,7 @@ class PrivacySettingsRepository(context: Context) {
     fun updateSettings(transform: (PrivacySettingsState) -> PrivacySettingsState) {
         val updated = transform(_settings.value)
         prefs.edit().apply {
+            putString(KEY_TRACKER_PROTECTION_LEVEL, updated.trackerProtectionLevel.name)
             putBoolean(KEY_BLOCK_TRACKERS, updated.blockTrackers)
             putBoolean(KEY_BLOCK_3RD_PARTY_COOKIES, updated.blockThirdPartyCookies)
             putBoolean(KEY_CLEAR_ON_EXIT, updated.clearDataOnExit)
@@ -75,6 +89,7 @@ class PrivacySettingsRepository(context: Context) {
     }
 
     companion object {
+        private const val KEY_TRACKER_PROTECTION_LEVEL = "tracker_protection_level"
         private const val KEY_BLOCK_TRACKERS = "block_trackers"
         private const val KEY_BLOCK_3RD_PARTY_COOKIES = "block_3rd_party_cookies"
         private const val KEY_CLEAR_ON_EXIT = "clear_on_exit"
