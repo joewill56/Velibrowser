@@ -34,6 +34,10 @@ jobs:
 
       - name: Verify Stable Debug Keystore Exists
         run: |
+          if [ ! -f "debug.keystore" ] && [ -f "debug.keystore.base64" ]; then
+            echo "Restoring debug.keystore from committed debug.keystore.base64..."
+            base64 -d debug.keystore.base64 > debug.keystore
+          fi
           if [ ! -f "debug.keystore" ]; then
             echo "::error::FATAL: debug.keystore is missing from the repository root! Builds must not use dynamically generated keys."
             exit 1
