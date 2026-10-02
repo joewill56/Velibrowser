@@ -32,11 +32,53 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
+      - name: Verify Stable Debug Keystore Exists
+        run: |
+          if [ ! -f "debug.keystore" ]; then
+            echo "::error::FATAL: debug.keystore is missing from the repository root! Builds must not use dynamically generated keys."
+            exit 1
+          fi
+          echo "Checking debug.keystore certificate fingerprint..."
+          KEYSTORE_SHA256=$(keytool -list -v -keystore debug.keystore -storepass android | grep "SHA256:" | head -n 1 | awk '{print $2}')
+          echo "debug.keystore SHA-256: $KEYSTORE_SHA256"
+          EXPECTED_SHA256="38:E2:FC:8D:A0:7A:11:5E:FF:05:F9:67:62:BD:D3:1C:CA:7A:4F:44:D3:F1:59:5B:16:05:D2:26:C9:00:4E:33"
+          if [ "$KEYSTORE_SHA256" != "$EXPECTED_SHA256" ]; then
+            echo "::error::FATAL: debug.keystore certificate fingerprint mismatch! Found: $KEYSTORE_SHA256, Expected: $EXPECTED_SHA256"
+            exit 1
+          fi
+          echo "Stable development debug.keystore verified successfully."
+
       - name: Run Build and Unit Tests
         run: ./gradlew testDebugUnitTest --continue
 
       - name: Assemble Debug APK
         run: ./gradlew assembleDebug --stacktrace
+
+      - name: Verify APK Signing Certificate and Schemes
+        run: |
+          APK_PATH=$(ls app/build/outputs/apk/debug/*.apk | head -n 1)
+          if [ ! -f "$APK_PATH" ]; then
+            echo "::error::APK file not found after build!"
+            exit 1
+          fi
+          echo "Inspecting APK: $APK_PATH"
+          apksigner verify --verbose --print-certs "$APK_PATH" > apk_signing_report.txt || true
+          cat apk_signing_report.txt
+
+          EXPECTED_FINGERPRINT="38e2fc8da07a115eff05f96762bdd31cca7a4f44d3f1595b1605d226c9004e33"
+          ACTUAL_FINGERPRINT=$(grep "Signer #1 certificate SHA-256 digest:" apk_signing_report.txt | awk '{print $NF}' | tr '[:upper:]' '[:lower:]')
+          echo "Actual APK Certificate SHA-256: $ACTUAL_FINGERPRINT"
+          echo "Expected Certificate SHA-256:   $EXPECTED_FINGERPRINT"
+          if [ "$ACTUAL_FINGERPRINT" != "$EXPECTED_FINGERPRINT" ]; then
+            echo "::error::FATAL: APK was signed with an unexpected certificate ($ACTUAL_FINGERPRINT)!"
+            exit 1
+          fi
+
+          if ! grep -q "Verified using v2 scheme (APK Signature Scheme v2): true" apk_signing_report.txt; then
+            echo "::error::FATAL: APK is missing V2 signature!"
+            exit 1
+          fi
+          echo "APK signing identity and V2 scheme verified successfully."
 
       - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4

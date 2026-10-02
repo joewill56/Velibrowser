@@ -10,14 +10,14 @@ plugins {
 
 android {
   namespace = "com.example"
-  compileSdk { version = release(36) { minorApiLevel = 1 } }
+  compileSdk = 36
 
   defaultConfig {
     applicationId = "com.aistudio.veilbrowse.secpriv"
     minSdk = 24
-    targetSdk = 36
-    versionCode = 1
-    versionName = "1.0"
+    targetSdk = 35
+    versionCode = 2
+    versionName = "1.1"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -30,14 +30,21 @@ android {
       keyAlias = "upload"
       keyPassword = System.getenv("KEY_PASSWORD")
     }
-    val localDebugKeystore = file("${rootDir}/debug.keystore")
-    if (localDebugKeystore.exists()) {
-      create("debugConfig") {
-        storeFile = localDebugKeystore
-        storePassword = "android"
-        keyAlias = "androiddebugkey"
-        keyPassword = "android"
+    getByName("debug") {
+      val debugKeystoreFile = file("${rootDir}/debug.keystore")
+      if (!debugKeystoreFile.exists()) {
+        throw GradleException(
+          "FATAL: Required debug.keystore not found at ${debugKeystoreFile.absolutePath}. " +
+          "VeilBrowse requires the committed development debug.keystore to maintain a stable signing identity across all builds. " +
+          "Do not generate a random debug key."
+        )
       }
+      storeFile = debugKeystoreFile
+      storePassword = "android"
+      keyAlias = "androiddebugkey"
+      keyPassword = "android"
+      enableV1Signing = true
+      enableV2Signing = true
     }
   }
 
@@ -49,12 +56,7 @@ android {
       signingConfig = signingConfigs.getByName("release")
     }
     debug {
-      val localDebugKeystore = file("${rootDir}/debug.keystore")
-      if (localDebugKeystore.exists()) {
-        signingConfig = signingConfigs.getByName("debugConfig")
-      } else {
-        signingConfig = signingConfigs.getByName("debug")
-      }
+      signingConfig = signingConfigs.getByName("debug")
     }
   }
   compileOptions {

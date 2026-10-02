@@ -14,14 +14,16 @@ local.properties
 *.aab
 *.ap_
 
-# Signing Keys & Keystores (Never commit credentials)
+# Release Signing Keys & Keystores (Never commit release credentials)
 *.jks
-*.keystore
 *.p12
 *.key
-debug.keystore
-debug.keystore.base64
 my-upload-key.jks
+release*.keystore
+
+# Development debug keystore is tracked for consistent build signatures across CI and local dev
+!debug.keystore
+!debug.keystore.base64
 
 # Environment variables & secrets
 .env
