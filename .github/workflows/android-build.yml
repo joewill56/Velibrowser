@@ -81,43 +81,101 @@ jobs:
 
       - name: Verify APK Signing Certificate and Schemes
         run: |
+          set -euo pipefail
+
           APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
           if [ ! -f "$APK_PATH" ]; then
             APK_PATH=$(ls app/build/outputs/apk/debug/*.apk 2>/dev/null | head -n 1)
           fi
           if [ -z "$APK_PATH" ] || [ ! -f "$APK_PATH" ]; then
-            echo "::error::APK file not found after build!"
+            echo "::error::FATAL: APK file not found after build!"
             exit 1
           fi
-          echo "Inspecting APK: $APK_PATH"
+          echo "=== Inspecting APK: $APK_PATH ==="
+
           if command -v apksigner >/dev/null 2>&1; then
             APKSIGNER_BIN="apksigner"
           else
             SDK_ROOT="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
             APKSIGNER_BIN=$(find "$SDK_ROOT/build-tools" -name apksigner -type f 2>/dev/null | sort -V | tail -n 1)
           fi
-          if [ -n "$APKSIGNER_BIN" ] && [ -f "$APKSIGNER_BIN" ]; then
-            echo "Using apksigner: $APKSIGNER_BIN"
-            "$APKSIGNER_BIN" verify --verbose --print-certs "$APK_PATH" > apk_signing_report.txt
-            cat apk_signing_report.txt
-            ACTUAL_FINGERPRINT=$(grep "Signer #1 certificate SHA-256 digest:" apk_signing_report.txt | awk '{print $NF}' | tr '[:upper:]' '[:lower:]')
-            echo "Debug APK Certificate SHA-256: $ACTUAL_FINGERPRINT"
 
-            EXPECTED_FINGERPRINT="38e2fc8da07a115eff05f96762bdd31cca7a4f44d3f1595b1605d226c9004e33"
-            if [ "$ACTUAL_FINGERPRINT" != "$EXPECTED_FINGERPRINT" ]; then
-              echo "::error::FATAL: APK was signed with an unexpected certificate ($ACTUAL_FINGERPRINT)! Expected: $EXPECTED_FINGERPRINT"
-              exit 1
-            fi
-
-            if ! grep -q "Verified using v2 scheme (APK Signature Scheme v2): true" apk_signing_report.txt; then
-              echo "::error::FATAL: APK is missing V2 signature!"
-              exit 1
-            fi
-            echo "Permanent APK signing identity and V2 scheme verified successfully."
-          else
+          if [ -z "$APKSIGNER_BIN" ] || [ ! -f "$APKSIGNER_BIN" ]; then
             echo "::error::FATAL: apksigner binary not found in system or Android SDK build-tools!"
             exit 1
           fi
+          echo "Using apksigner: $APKSIGNER_BIN"
+
+          # 1. Print and capture complete non-secret apksigner verification report (stdout and stderr)
+          "$APKSIGNER_BIN" verify --verbose --print-certs "$APK_PATH" > apk_signing_report.txt 2>&1 || true
+
+          echo "==================== APKSIGNER VERIFICATION REPORT ===================="
+          cat apk_signing_report.txt
+          echo "======================================================================="
+
+          # 2. Extract certificate SHA-256 fingerprint robustly across build-tools versions
+          RAW_FINGERPRINT=$(python3 - << 'EOF'
+          import re, sys
+          try:
+              with open("apk_signing_report.txt", "r", encoding="utf-8", errors="replace") as f:
+                  content = f.read()
+
+              # Priority 1: Match certificate line specifically (excluding public key)
+              cert_lines = [
+                  line for line in content.splitlines()
+                  if "certificate" in line.lower() and "sha" in line.lower() and "256" in line.lower() and "public key" not in line.lower()
+              ]
+              for line in cert_lines:
+                  m = re.search(r"([0-9a-fA-F:]{64,95})", line)
+                  if m:
+                      print(m.group(1).strip())
+                      sys.exit(0)
+
+              # Priority 2: Generic certificate SHA-256 pattern
+              m = re.search(r"(?:certificate\s+)?SHA-?256(?:\s+digest)?\s*:?\s*([0-9a-fA-F:]{64,95})", content, re.IGNORECASE)
+              if m:
+                  print(m.group(1).strip())
+                  sys.exit(0)
+
+              sys.exit(1)
+          except Exception:
+              sys.exit(1)
+          EOF
+          ) || RAW_FINGERPRINT=""
+
+          # Fallback to sed/awk/grep if python did not match
+          if [ -z "$RAW_FINGERPRINT" ]; then
+            RAW_FINGERPRINT=$(grep -i "certificate.*SHA.*256" apk_signing_report.txt 2>/dev/null | grep -vi "public key" | sed -E 's/.*([0-9a-fA-F:]{64,95}).*/\1/' | head -n 1) || RAW_FINGERPRINT=""
+          fi
+
+          # 3. Normalize extracted fingerprint: lowercase, remove colons, spaces, and newlines
+          NORMALIZED_FINGERPRINT=$(echo "${RAW_FINGERPRINT}" | tr '[:upper:]' '[:lower:]' | tr -d ': \t\r\n')
+
+          # 5 & 6. Verify extracted value is not empty
+          if [ -z "$NORMALIZED_FINGERPRINT" ]; then
+            echo "::error::FATAL: Could not extract certificate SHA-256 fingerprint from apksigner output!"
+            echo "::error::The full apksigner verification report has been printed above for diagnosis."
+            exit 1
+          fi
+
+          EXPECTED_FINGERPRINT="38e2fc8da07a115eff05f96762bdd31cca7a4f44d3f1595b1605d226c9004e33"
+
+          echo "Extracted APK Certificate SHA-256: $NORMALIZED_FINGERPRINT"
+          echo "Expected APK Certificate SHA-256:  $EXPECTED_FINGERPRINT"
+
+          # 4. Compare against expected permanent certificate
+          if [ "$NORMALIZED_FINGERPRINT" != "$EXPECTED_FINGERPRINT" ]; then
+            echo "::error::FATAL: APK was signed with an unexpected certificate ($NORMALIZED_FINGERPRINT)! Expected: $EXPECTED_FINGERPRINT"
+            exit 1
+          fi
+
+          # 7. Verify V2 signing remains true
+          if ! grep -qi "Verified using v2 scheme.*true" apk_signing_report.txt; then
+            echo "::error::FATAL: APK is missing V2 signature scheme!"
+            exit 1
+          fi
+
+          echo "Permanent APK signing identity (SHA-256: $EXPECTED_FINGERPRINT) and V2 scheme verified successfully."
 
       - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4
