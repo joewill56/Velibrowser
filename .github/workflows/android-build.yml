@@ -20,6 +20,47 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Restore and Verify Permanent Debug Keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.VEILBROWSE_DEBUG_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+
+          # 1. Check that secrets.VEILBROWSE_DEBUG_KEYSTORE_BASE64 exists and is not empty
+          if [ -z "${KEYSTORE_BASE64:-}" ]; then
+            echo "::error::FATAL: Required GitHub Actions secret 'VEILBROWSE_DEBUG_KEYSTORE_BASE64' is missing or empty!"
+            echo "::error::To fix this, go to: Repository Settings -> Secrets and variables -> Actions -> New repository secret"
+            echo "::error::Name: VEILBROWSE_DEBUG_KEYSTORE_BASE64"
+            echo "::error::Value: Base64 encoding of the permanent VeilBrowse debug.keystore"
+            exit 1
+          fi
+
+          # 2. Decode it to $GITHUB_WORKSPACE/debug.keystore (do not echo secret content)
+          echo "${KEYSTORE_BASE64}" | base64 -d > "${GITHUB_WORKSPACE}/debug.keystore"
+
+          if [ ! -f "${GITHUB_WORKSPACE}/debug.keystore" ] || [ ! -s "${GITHUB_WORKSPACE}/debug.keystore" ]; then
+            echo "::error::FATAL: Failed to decode debug.keystore from secret VEILBROWSE_DEBUG_KEYSTORE_BASE64!"
+            exit 1
+          fi
+
+          # 3. Verify that the resulting file is a valid Java keystore
+          if ! keytool -list -keystore "${GITHUB_WORKSPACE}/debug.keystore" -storepass android >/dev/null 2>&1; then
+            echo "::error::FATAL: Decoded debug.keystore is not a valid Java keystore or storepass is invalid!"
+            exit 1
+          fi
+
+          # 4. Verify its certificate SHA-256 fingerprint
+          KEYSTORE_SHA256=$(keytool -list -v -keystore "${GITHUB_WORKSPACE}/debug.keystore" -storepass android | grep -i "SHA256:" | head -n 1 | sed 's/.*SHA256: *//I' | tr -d ' \r\n')
+          echo "Restored Keystore Certificate SHA-256: $KEYSTORE_SHA256"
+
+          EXPECTED_SHA256="38:E2:FC:8D:A0:7A:11:5E:FF:05:F9:67:62:BD:D3:1C:CA:7A:4F:44:D3:F1:59:5B:16:05:D2:26:C9:00:4E:33"
+          if [ "${KEYSTORE_SHA256^^}" != "${EXPECTED_SHA256^^}" ]; then
+            echo "::error::FATAL: debug.keystore certificate fingerprint mismatch! Found: $KEYSTORE_SHA256, Expected: $EXPECTED_SHA256"
+            exit 1
+          fi
+
+          echo "Permanent VeilBrowse debug keystore verified successfully."
+
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
@@ -62,13 +103,20 @@ jobs:
             ACTUAL_FINGERPRINT=$(grep "Signer #1 certificate SHA-256 digest:" apk_signing_report.txt | awk '{print $NF}' | tr '[:upper:]' '[:lower:]')
             echo "Debug APK Certificate SHA-256: $ACTUAL_FINGERPRINT"
 
+            EXPECTED_FINGERPRINT="38e2fc8da07a115eff05f96762bdd31cca7a4f44d3f1595b1605d226c9004e33"
+            if [ "$ACTUAL_FINGERPRINT" != "$EXPECTED_FINGERPRINT" ]; then
+              echo "::error::FATAL: APK was signed with an unexpected certificate ($ACTUAL_FINGERPRINT)! Expected: $EXPECTED_FINGERPRINT"
+              exit 1
+            fi
+
             if ! grep -q "Verified using v2 scheme (APK Signature Scheme v2): true" apk_signing_report.txt; then
               echo "::error::FATAL: APK is missing V2 signature!"
               exit 1
             fi
-            echo "APK signing and V2 scheme verified successfully."
+            echo "Permanent APK signing identity and V2 scheme verified successfully."
           else
-            echo "apksigner not found, skipping certificate dump."
+            echo "::error::FATAL: apksigner binary not found in system or Android SDK build-tools!"
+            exit 1
           fi
 
       - name: Upload Debug APK Artifact

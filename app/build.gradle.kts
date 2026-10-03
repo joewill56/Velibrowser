@@ -31,13 +31,18 @@ android {
       keyPassword = System.getenv("KEY_PASSWORD")
     }
     getByName("debug") {
-      val customDebugKeystore = file("${rootDir}/debug.keystore")
-      if (customDebugKeystore.exists()) {
-        storeFile = customDebugKeystore
-        storePassword = "android"
-        keyAlias = "androiddebugkey"
-        keyPassword = "android"
+      val permanentKeystore = file("${rootDir}/debug.keystore")
+      if (!permanentKeystore.exists()) {
+        throw GradleException(
+          "FATAL: Required permanent debug.keystore not found at ${permanentKeystore.absolutePath}. " +
+          "VeilBrowse requires the permanent development debug.keystore (SHA-256: 38:E2:FC:8D:A0:7A:11:5E:FF:05:F9:67:62:BD:D3:1C:CA:7A:4F:44:D3:F1:59:5B:16:05:D2:26:C9:00:4E:33) " +
+          "to maintain signing identity compatibility across all builds. Dynamic keystore generation is strictly disabled."
+        )
       }
+      storeFile = permanentKeystore
+      storePassword = "android"
+      keyAlias = "androiddebugkey"
+      keyPassword = "android"
       enableV1Signing = true
       enableV2Signing = true
     }
