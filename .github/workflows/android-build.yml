@@ -43,7 +43,7 @@ jobs:
             exit 1
           fi
           echo "Checking debug.keystore certificate fingerprint..."
-          KEYSTORE_SHA256=$(keytool -list -v -keystore debug.keystore -storepass android | grep "SHA256:" | head -n 1 | awk '{print $2}')
+          KEYSTORE_SHA256=$(keytool -list -v -keystore debug.keystore -storepass android | grep -i "SHA256:" | head -n 1 | sed 's/.*SHA256: *//I' | tr -d ' \r\n')
           echo "debug.keystore SHA-256: $KEYSTORE_SHA256"
           EXPECTED_SHA256="38:E2:FC:8D:A0:7A:11:5E:FF:05:F9:67:62:BD:D3:1C:CA:7A:4F:44:D3:F1:59:5B:16:05:D2:26:C9:00:4E:33"
           if [ "$KEYSTORE_SHA256" != "$EXPECTED_SHA256" ]; then
@@ -66,7 +66,18 @@ jobs:
             exit 1
           fi
           echo "Inspecting APK: $APK_PATH"
-          apksigner verify --verbose --print-certs "$APK_PATH" > apk_signing_report.txt || true
+          if command -v apksigner >/dev/null 2>&1; then
+            APKSIGNER_BIN="apksigner"
+          else
+            SDK_ROOT="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+            APKSIGNER_BIN=$(find "$SDK_ROOT/build-tools" -name apksigner -type f 2>/dev/null | sort -V | tail -n 1)
+          fi
+          if [ -z "$APKSIGNER_BIN" ] || [ ! -f "$APKSIGNER_BIN" ]; then
+            echo "::error::FATAL: apksigner binary not found!"
+            exit 1
+          fi
+          echo "Using apksigner: $APKSIGNER_BIN"
+          "$APKSIGNER_BIN" verify --verbose --print-certs "$APK_PATH" > apk_signing_report.txt
           cat apk_signing_report.txt
 
           EXPECTED_FINGERPRINT="38e2fc8da07a115eff05f96762bdd31cca7a4f44d3f1595b1605d226c9004e33"
